@@ -1,57 +1,59 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
+import numpy as np
 
 # ─────────────────────────────
-# MODELİ YÜKLE
+# LOAD MODEL
 # ─────────────────────────────
-model = joblib.load("model.pkl")
-
-st.title("🧬 Liver Cirrhosis Stage Prediction (TEST)")
-
-st.write("Basit test arayüzü — model çalışıyor mu kontrol et")
+data = joblib.load("model.pkl")
+model = data["model"]
+features = data["features"]
 
 # ─────────────────────────────
-# GİRİŞ ALANLARI (SADE TUTTUM)
+# UI CONFIG
 # ─────────────────────────────
+st.set_page_config(page_title="Liver Cirrhosis AI", layout="wide")
 
-age = st.number_input("Age (years)", 0, 100, 50)
-bilirubin = st.number_input("Bilirubin", 0.0, 50.0, 1.0)
-alk_phos = st.number_input("Alk Phos", 0.0, 2000.0, 100.0)
-sgot = st.number_input("SGOT", 0.0, 2000.0, 100.0)
-albumin = st.number_input("Albumin", 0.0, 10.0, 3.5)
-
-sex = st.selectbox("Sex", ["M", "F"])
+st.title("🧬 Liver Cirrhosis Stage Prediction AI")
+st.write("Bitirme Projesi – Machine Learning Classification System")
 
 # ─────────────────────────────
-# DATAFRAME OLUŞTUR
+# SIDEBAR INPUTS
 # ─────────────────────────────
+st.sidebar.header("Patient Data Input")
 
-input_data = pd.DataFrame([{
-    "Age": age,
-    "Bilirubin": bilirubin,
-    "Alk_Phos": alk_phos,
-    "SGOT": sgot,
-    "Albumin": albumin,
-    "Sex": sex
-}])
+input_dict = {}
+
+for col in features:
+    if col in ["Drug", "Sex", "Ascites", "Hepatomegaly", "Spiders", "Edema"]:
+        input_dict[col] = st.sidebar.selectbox(col, ["Y", "N", "M", "F", "D-penicillamine", "Placebo", "S"])
+    else:
+        input_dict[col] = st.sidebar.number_input(col, value=0.0)
 
 # ─────────────────────────────
 # PREDICT
 # ─────────────────────────────
+if st.button("🔍 Predict Stage"):
 
-if st.button("Predict Stage"):
-    try:
-        prediction = model.predict(input_data)[0]
+    df = pd.DataFrame([input_dict])
 
-        stage_map = {
-            0: "Stage 1",
-            1: "Stage 2",
-            2: "Stage 3"
-        }
+    # CRITICAL FIX
+    df = df[features]
 
-        st.success(f"Prediction: {stage_map[prediction]}")
+    pred = model.predict(df)[0]
+    prob = model.predict_proba(df)[0]
 
-    except Exception as e:
-        st.error(f"Hata oluştu: {e}")
+    stages = {0:"Stage 1", 1:"Stage 2", 2:"Stage 3"}
+
+    st.success(f"Prediction: {stages[pred]}")
+
+    st.subheader("Prediction Confidence")
+
+    st.write({
+        "Stage 1": f"{prob[0]*100:.2f}%",
+        "Stage 2": f"{prob[1]*100:.2f}%",
+        "Stage 3": f"{prob[2]*100:.2f}%"
+    })
+
+    st.progress(float(max(prob)))
